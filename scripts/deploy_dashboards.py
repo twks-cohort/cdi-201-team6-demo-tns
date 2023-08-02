@@ -5,7 +5,7 @@ from xmlrpc.server import CGIXMLRPCRequestHandler
 
 import requests
 
-base_url = "https://team##201stack.grafana.net/api/dashboards/db"
+base_url = "https://team6201stack.grafana.net/api/dashboards/db"
 headers = {
     "Accept": "application/json",
     "Content-Type": "application/json",

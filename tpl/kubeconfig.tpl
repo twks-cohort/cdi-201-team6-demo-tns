@@ -1,1 +1,1 @@
-{{ op://cohorts/team##-201-platform-vcluster/kubeconfig }}
+{{ op://cohorts/team6-201-platform-vcluster/kubeconfig }}
