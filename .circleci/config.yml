@@ -1,0 +1,168 @@
+---
+version: 2.1
+
+orbs:
+  terraform: twdps/terraform@0.6.0
+  kube: twdps/kube-ops@0.2.0
+  op: twdps/onepassword@1.0.0
+  do: twdps/pipeline-events@0.1.0
+
+# ==== global pipeline parameters
+
+parameters:
+  context:
+    description: circleci context for all jobs
+    type: string
+    default: cohorts
+  terraform-version:
+    description: terraform version for all jobs
+    type: string
+    default: "1.2.2"
+  executor-image:
+    description: image to use for local jobs
+    type: string
+    default: twdps/circleci-kube-ops:alpine-stable
+
+# ==== triggers
+
+on-push-main: &on-push-main
+  branches:
+    only: /main/
+  tags:
+    ignore: /.*/
+
+on-tag-main: &on-tag-main
+  branches:
+    ignore: /.*/
+  tags:
+    only: /.*/
+
+commands:
+
+  set-environment:
+    parameters:
+      environment:
+        description: target SDLC environment
+        type: string
+      source-env:
+        description: file to source to BASH_ENV
+        type: string
+    steps:
+      - op/env:
+          env-file: << parameters.source-env >>
+      - run:
+          name: pull kubeconfig
+          command: |
+            mkdir -p ~/.kube
+            ENV=<< parameters.environment >> op inject -i tpl/kubeconfig.tpl -o ~/.kube/config
+
+jobs:
+  deploy-tns:
+    docker:
+      - image: << pipeline.parameters.executor-image >>
+    shell: << parameters.shell >>
+    parameters:
+      environment:
+        description: target SDLC Environment
+        type: string
+        default: ""
+      shell:
+        description: shell option directive
+        type: string
+        default: /bin/bach -eo pipefail
+      source-env:
+        description: env file to source to BASH_ENV
+        type: string
+    steps:
+      - checkout
+      - setup_remote_docker
+      - set-environment:
+          environment: << parameters.environment >>
+          source-env: << parameters.source-env >>
+      - run:
+          name: Install TNS-Cloud
+          command: bash scripts/deploy_tns.sh << parameters.environment >>
+
+  validate-tns:
+    docker:
+      - image: << pipeline.parameters.executor-image >>
+    shell: << parameters.shell >>
+    parameters:
+      environment:
+        description: target SDLC Environment
+        type: string
+        default: ""
+      shell:
+        description: shell option directive
+        type: string
+        default: /bin/bach -eo pipefail
+      source-env:
+        description: env file to source to BASH_ENV
+        type: string
+    steps:
+      - checkout
+      - setup_remote_docker
+      - set-environment:
+          environment: << parameters.environment >>
+          source-env: << parameters.source-env >>
+      - run:
+          name: Validate TNS-Cloud
+          command: bash scripts/validate_tns.sh << parameters.environment >>
+
+  deploy-dashboards:
+    docker:
+      - image: << pipeline.parameters.executor-image >>
+    shell: << parameters.shell >>
+    parameters:
+      environment:
+        description: target SDLC Environment
+        type: string
+        default: ""
+      shell:
+        description: shell option directive
+        type: string
+        default: /bin/bach -eo pipefail
+      source-env:
+        description: env file to source to BASH_ENV
+        type: string
+    steps:
+      - checkout
+      - setup_remote_docker
+      - set-environment:
+          environment: << parameters.environment >>
+          source-env: << parameters.source-env >>
+      - run:
+          name: install requirements
+          command: pip install -r requirements.txt
+      - run:
+          name: Deploy TNS-Cloud dashboards
+          command: python scripts/deploy_dashboards.py
+
+workflows:
+  release tns-cloud to nonprod:
+    jobs:
+      - deploy-tns:
+          name: release tns-cloud dev
+          context: << pipeline.parameters.context >>
+          shell: op run --env-file=op.nonprod.env -- /bin/bash -eo pipefail
+          source-env: op.nonprod.env
+          environment: dev
+          filters: *on-push-main
+      - validate-tns:
+          name: validate tns-cloud dev
+          context: << pipeline.parameters.context >>
+          shell: op run --env-file=op.nonprod.env -- /bin/bash -eo pipefail
+          source-env: op.nonprod.env
+          environment: dev
+          requires:
+            - release tns-cloud dev
+          filters: *on-push-main
+      - deploy-dashboards:
+          name: deploy tns-cloud dev dashboard
+          context: << pipeline.parameters.context >>
+          shell: op run --env-file=op.nonprod.env -- /bin/bash -eo pipefail
+          source-env: op.nonprod.env
+          environment: dev
+          requires:
+            - validate tns-cloud dev
+          filters: *on-push-main
