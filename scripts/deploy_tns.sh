@@ -43,8 +43,6 @@ spec:
         - -log.level=$LOG_LEVEL
         - http://db
         env:
-        - name: JAEGER_AGENT_HOST
-          value: grafana-agent-traces.grafana-system.svc.cluster.local
         - name: JAEGER_TAGS
           value: cluster=$CLUSTER,namespace=$NAMESPACE
         - name: JAEGER_SAMPLER_TYPE
