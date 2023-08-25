@@ -2,7 +2,7 @@
     "log_level": "info",
     "app_replicas": 1,
     "db_replicas": 1,
-    "loadgen_replicas": 0,
+    "loadgen_replicas": 1,
     "cluster": "prod-us-east-2",
     "environment": "dev"
 }
